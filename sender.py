@@ -4,7 +4,6 @@ import socket
 HOST = "127.0.0.1"
 PORT = 5000
 
-
 def main():
     try:
         with open("sample_packet.json", "r", encoding="utf-8") as file:
