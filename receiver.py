@@ -4,7 +4,6 @@ import socket
 HOST = "127.0.0.1"
 PORT = 5000
 
-
 def validate_packet(packet):
     if "packet_id" not in packet:
         raise ValueError("Missing packet_id")
