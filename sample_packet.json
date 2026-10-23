@@ -1,20 +1,21 @@
 {
   "packet_id": 27,
-  "timestamp": 1713589201,
+  "timestamp": 1791918000,
   "object": {
     "type": "person",
-    "confidence": 0.92
+    "confidence": 0.87
   },
   "position": {
-    "latitude": 37.2211,
-    "longitude": -80.4234,
-    "altitude_m": 24.8
+    "latitude": 37.2296,
+    "longitude": -80.4243,
+    "altitude_m": 18.5
   },
   "bbox": {
-    "x": 182,
-    "y": 96,
-    "width": 77,
-    "height": 143
+    "x": 120,
+    "y": 85,
+    "width": 60,
+    "height": 165
   },
   "thumbnail": "det_27.jpg"
 }
+
