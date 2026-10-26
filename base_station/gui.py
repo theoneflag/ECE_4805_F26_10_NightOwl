@@ -132,6 +132,7 @@ table.tag_configure("even", background="#172235")
 table.tag_configure("odd", background="#1c2a40")
 
 detections = []
+visible_row_count = 0
 
 def show_selected(event=None):
     selected = table.selection()
@@ -142,35 +143,32 @@ def show_selected(event=None):
 table.bind("<<TreeviewSelect>>", show_selected)
 
 
+def insert_detection(index, detection):
+    """Append one matching row; existing rows and selection remain intact."""
+    global visible_row_count
+    if selected_type.get() not in ("All", detection.object_type):
+        return
+    table.insert(
+        "", "end", iid=str(index),
+        tags=("even" if visible_row_count % 2 == 0 else "odd",),
+        values=(detection.object_type, f"{detection.confidence:.0%}",
+                detection.formatted_time, detection.formatted_latitude,
+                detection.formatted_longitude),
+    )
+    visible_row_count += 1
+
+
 def update_table(event=None):
+    global visible_row_count
+    visible_row_count = 0
+    # Rebuild only when the operator changes the filter.
     selected = table.selection()
     previous = selected[0] if selected else None
-    for row in table.get_children():
-        table.delete(row)
-
+    rows = table.get_children()
+    if rows:
+        table.delete(*rows)
     for index, detection in enumerate(detections):
-        if (
-            selected_type.get() == "All"
-            or detection.object_type == selected_type.get()
-        ):
-            table.insert(
-                "",
-                "end",
-                iid=str(index),
-                tags=(
-                    "even"
-                    if len(table.get_children()) % 2 == 0
-                    else "odd",
-                ),
-                values=(
-                    detection.object_type,
-                    f"{detection.confidence:.0%}",
-                    detection.formatted_time,
-                    f"{detection.latitude:.6f}",
-                    f"{detection.longitude:.6f}",
-                ),
-            )
-
+        insert_detection(index, detection)
     if previous is not None and table.exists(previous):
         table.selection_set(previous)
     else:
@@ -196,7 +194,7 @@ def check_incoming():
                 choices.append(data.object_type)
                 object_filter["values"] = choices
 
-            update_table()
+            insert_detection(len(detections) - 1, data)
 
             status_text.set(
                 f"Received {len(detections)} detections — "

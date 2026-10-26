@@ -224,8 +224,8 @@ class DetailsPanel(ttk.Frame):
             "Object": detection.object_type,
             "Confidence": f"{detection.confidence:.0%}",
             "Time (local)": detection.formatted_time,
-            "Latitude": f"{detection.latitude:.6f}",
-            "Longitude": f"{detection.longitude:.6f}",
+            "Latitude": detection.formatted_latitude,
+            "Longitude": detection.formatted_longitude,
             "Altitude (m)": "Not provided" if detection.altitude_m is None else str(detection.altitude_m),
         }
         for name, value in values.items():
