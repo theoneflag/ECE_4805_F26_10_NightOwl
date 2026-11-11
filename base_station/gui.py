@@ -1,3 +1,4 @@
+import argparse
 import tkinter as tk
 import threading
 import queue
@@ -6,6 +7,15 @@ from tkinter import ttk
 from pathlib import Path
 from details_panel import DetailsPanel
 from packet_receiver import receive_packets
+
+parser = argparse.ArgumentParser(description="Night Owl detection viewer")
+parser.add_argument('--serial-port', help='Serial radio port, e.g. COM8 or /dev/ttyUSB0')
+parser.add_argument('--baud', type=int, default=57600)
+parser.add_argument('--host', default='127.0.0.1', help='TCP listening address when serial is not selected')
+parser.add_argument('--port', type=int, default=5000)
+args = parser.parse_args()
+if args.baud <= 0:
+    parser.error('baud must be positive')
 
 root = tk.Tk()
 root.title("Night Owl — Base Station")
@@ -132,6 +142,7 @@ table.tag_configure("even", background="#172235")
 table.tag_configure("odd", background="#1c2a40")
 
 detections = []
+visible_row_count = 0
 
 def show_selected(event=None):
     selected = table.selection()
@@ -142,35 +153,32 @@ def show_selected(event=None):
 table.bind("<<TreeviewSelect>>", show_selected)
 
 
+def insert_detection(index, detection):
+    """Append one matching row; existing rows and selection remain intact."""
+    global visible_row_count
+    if selected_type.get() not in ("All", detection.object_type):
+        return
+    table.insert(
+        "", "end", iid=str(index),
+        tags=("even" if visible_row_count % 2 == 0 else "odd",),
+        values=(detection.object_type, f"{detection.confidence:.0%}",
+                detection.formatted_time, detection.formatted_latitude,
+                detection.formatted_longitude),
+    )
+    visible_row_count += 1
+
+
 def update_table(event=None):
+    global visible_row_count
+    visible_row_count = 0
+    # Rebuild only when the operator changes the filter.
     selected = table.selection()
     previous = selected[0] if selected else None
-    for row in table.get_children():
-        table.delete(row)
-
+    rows = table.get_children()
+    if rows:
+        table.delete(*rows)
     for index, detection in enumerate(detections):
-        if (
-            selected_type.get() == "All"
-            or detection.object_type == selected_type.get()
-        ):
-            table.insert(
-                "",
-                "end",
-                iid=str(index),
-                tags=(
-                    "even"
-                    if len(table.get_children()) % 2 == 0
-                    else "odd",
-                ),
-                values=(
-                    detection.object_type,
-                    f"{detection.confidence:.0%}",
-                    detection.formatted_time,
-                    f"{detection.latitude:.6f}",
-                    f"{detection.longitude:.6f}",
-                ),
-            )
-
+        insert_detection(index, detection)
     if previous is not None and table.exists(previous):
         table.selection_set(previous)
     else:
@@ -196,7 +204,7 @@ def check_incoming():
                 choices.append(data.object_type)
                 object_filter["values"] = choices
 
-            update_table()
+            insert_detection(len(detections) - 1, data)
 
             status_text.set(
                 f"Received {len(detections)} detections — "
@@ -208,11 +216,15 @@ def check_incoming():
     root.after(100, check_incoming)
 
 
-threading.Thread(
-    target=receive_packets,
-    args=(incoming,),
-    daemon=True,
-).start()
+if args.serial_port:
+    from serial_link import receive_serial_packets
+    receiver_target = receive_serial_packets
+    receiver_kwargs = {"serial_port": args.serial_port, "baud": args.baud}
+else:
+    receiver_target = receive_packets
+    receiver_kwargs = {"host": args.host, "port": args.port}
+threading.Thread(target=receiver_target, args=(incoming,),
+                 kwargs=receiver_kwargs, daemon=True).start()
 
 check_incoming()
 root.mainloop()

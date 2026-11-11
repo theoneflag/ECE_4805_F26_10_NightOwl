@@ -1,0 +1,16 @@
+
+# Night Owl test package exclusions
+# Generated Python files and local environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+# Bench records and personal images (keep private backups)
+base_station/logs/
+base_station/radio_thumbnails/
+detections_radio/
+# Local editor and OS files
+.vscode/
+.DS_Store
+Thumbs.db

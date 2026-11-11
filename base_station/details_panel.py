@@ -1,4 +1,5 @@
 """Selected detection details, kept separate from networking and the table."""
+import copy
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
@@ -32,6 +33,8 @@ def selected_data(detection, choices):
         position["altitude_m"] = detection.altitude_m
     if position:
         data["position"] = position
+        if detection.gps is not None:
+            data["gps"] = copy.deepcopy(detection.gps)
     return data
 
 
@@ -56,6 +59,9 @@ class DetailsPanel(ttk.Frame):
         self.current_detection = None
         ttk.Label(body, text="SELECTED DETECTION",
                   font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(0, 12))
+        self.gps_text = tk.StringVar(master=self, value="GPS unavailable")
+        ttk.Label(body, textvariable=self.gps_text, wraplength=300,
+                  justify="left").pack(anchor="w", pady=(0, 12))
         style = ttk.Style(self)
         style.configure("Details.TCheckbutton", background="#101827",
                         foreground="#dbe4f0", font=("Segoe UI", 10))
@@ -208,6 +214,7 @@ class DetailsPanel(ttk.Frame):
                             parent=self)
 
     def clear(self):
+        self.gps_text.set("GPS unavailable")
         self.current_detection = None
         self.export_button.configure(state="disabled")
         for value in self.fields.values():
@@ -218,15 +225,16 @@ class DetailsPanel(ttk.Frame):
 
     def show_detection(self, detection):
         self.current_detection = detection
+        self.gps_text.set(detection.gps_summary)
         self.export_button.configure(state="normal")
         values = {
             "Packet ID": str(detection.packet_id),
             "Object": detection.object_type,
             "Confidence": f"{detection.confidence:.0%}",
             "Time (local)": detection.formatted_time,
-            "Latitude": f"{detection.latitude:.6f}",
-            "Longitude": f"{detection.longitude:.6f}",
-            "Altitude (m)": "Not provided" if detection.altitude_m is None else str(detection.altitude_m),
+            "Latitude": detection.formatted_latitude,
+            "Longitude": detection.formatted_longitude,
+            "Altitude (m)": detection.formatted_altitude,
         }
         for name, value in values.items():
             self.fields[name].set(value)

@@ -1,0 +1,3 @@
+# Optional: install only for a real MAVLink telemetry connection.
+# Base GUI dependencies are installed separately from requirements.txt.
+pymavlink>=2.4.49,<3
