@@ -1,3 +1,4 @@
+import argparse
 import tkinter as tk
 import threading
 import queue
@@ -6,6 +7,19 @@ from tkinter import ttk
 from pathlib import Path
 from details_panel import DetailsPanel
 from packet_receiver import receive_packets
+from radio import add_radio_arguments, list_ports
+
+parser = argparse.ArgumentParser(description="Night Owl detection viewer")
+add_radio_arguments(parser)
+options = parser.parse_args()
+if options.list_ports:
+    try:
+        list_ports()
+    except OSError as error:
+        parser.exit(1, f"{error}\n")
+    parser.exit()
+if options.baud <= 0:
+    parser.error("--baud must be positive")
 
 root = tk.Tk()
 root.title("Night Owl — Base Station")
@@ -90,10 +104,16 @@ ttk.Label(
 # Table and independent selected-detection panel
 content = ttk.Frame(root)
 content.pack(fill="both", expand=True, padx=28, pady=(0, 12))
-details = DetailsPanel(content, Path(__file__).resolve().parent)
-details.pack(side="right", fill="y", padx=(24, 0))
-table_frame = ttk.Frame(content)
-table_frame.pack(side="left", fill="both", expand=True)
+panes = tk.PanedWindow(content, orient="horizontal", bg="#101827", bd=0,
+                       sashwidth=12, sashrelief="flat", sashcursor="sb_h_double_arrow",
+                       opaqueresize=True)
+panes.pack(fill="both", expand=True)
+table_frame = ttk.Frame(panes)
+table_frame.rowconfigure(0, weight=1)
+table_frame.columnconfigure(0, weight=1)
+details = DetailsPanel(panes, Path(__file__).resolve().parent)
+panes.add(table_frame, minsize=590, stretch="always")
+panes.add(details, minsize=380, width=520, stretch="never")
 
 columns = ("type", "confidence", "time", "latitude", "longitude")
 
@@ -125,8 +145,11 @@ scrollbar = ttk.Scrollbar(
 )
 table.configure(yscrollcommand=scrollbar.set)
 
-scrollbar.pack(side="right", fill="y")
-table.pack(side="left", fill="both", expand=True)
+horizontal_scrollbar = ttk.Scrollbar(table_frame, orient="horizontal", command=table.xview)
+table.configure(xscrollcommand=horizontal_scrollbar.set)
+table.grid(row=0, column=0, sticky="nsew")
+scrollbar.grid(row=0, column=1, sticky="ns")
+horizontal_scrollbar.grid(row=1, column=0, sticky="ew")
 
 table.tag_configure("even", background="#172235")
 table.tag_configure("odd", background="#1c2a40")
@@ -166,8 +189,8 @@ def update_table(event=None):
                     detection.object_type,
                     f"{detection.confidence:.0%}",
                     detection.formatted_time,
-                    f"{detection.latitude:.6f}",
-                    f"{detection.longitude:.6f}",
+                    detection.formatted_latitude,
+                    detection.formatted_longitude,
                 ),
             )
 
@@ -202,6 +225,13 @@ def check_incoming():
                 f"Received {len(detections)} detections — "
                 f"latest: {data.object_type}"
             )
+        elif message_type == "image":
+            for detection in detections:
+                if detection.packet_id == data["packet_id"]:
+                    detection.image_path = data["image_path"]
+                    if details.current_detection is detection:
+                        details.show_detection(detection)
+            status_text.set(f"Received thumbnail for detection {data['packet_id']}")
         else:
             status_text.set(data)
 
@@ -211,6 +241,7 @@ def check_incoming():
 threading.Thread(
     target=receive_packets,
     args=(incoming,),
+    kwargs={"serial_port": options.serial_port, "baud": options.baud},
     daemon=True,
 ).start()
 

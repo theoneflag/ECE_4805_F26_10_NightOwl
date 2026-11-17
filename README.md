@@ -26,6 +26,8 @@ review detections and their associated information.
 
 Full integration of these subsystems is in progress.
 
+For laptop setup and GUI launch commands, see [startup.md](startup.md).
+
 ## Implemented Software Features
 
 - Local communication prototype using simulated detection packets.
@@ -36,12 +38,18 @@ Full integration of these subsystems is in progress.
 - Detailed views of detection confidence, timestamps,
   coordinates, altitude, and bounding boxes.
 - Thumbnail preview for detections with available image files.
-- UDP packet reception for the base-station GUI.
+- Compressed detection thumbnails transmitted over the dedicated JSON radio.
+- TCP packet reception for the base-station GUI.
+- Dedicated serial radio reception and sample packet transmission for the GUI.
+- Launcher for the existing Pi camera/Hailo detector over the JSON radio link.
+- Detection display with explicitly unavailable GPS.
+- Live USB Pixhawk GPS with automatic telemetry requests and stale-fix handling.
+- Pi boot-time startup through a systemd service installer.
 
 ## Planned Development
 
 - Connect onboard object-detection output to packet transmission.
-- Integrate Pixhawk GPS and altitude telemetry with detection data.
+- Validate Pixhawk GPS and altitude telemetry in complete flight tests.
 - Verify communication between the Raspberry Pi and ground station.
 - Test the complete detection-to-display workflow.
 - Document setup, configuration, and subsystem interfaces
@@ -51,13 +59,16 @@ Full integration of these subsystems is in progress.
 
 - `base_station/`: Base-station GUI, packet-handling modules,
   communication prototype scripts, and sample detection data.
+- `Night_Owl_Live_Radio.py`: Launcher connecting the existing Pi camera program
+  to the shared serial radio transport.
+- `night_owl_final.py`: Reference copy of the Pi's existing camera/Hailo detector.
 
 ## Technologies
 
 - Onboard computer: Raspberry Pi 5
 - Flight controller: Pixhawk 6C with ArduPilot
 - Data format: JSON
-- Communication: TCP prototype and UDP base-station receiver
+- Communication: TCP or dedicated serial radio with newline-delimited JSON
 - Flight configuration and telemetry: QGroundControl
 - Sensors: Camera, GPS, and LiDAR
 - Version control: Git and GitHub

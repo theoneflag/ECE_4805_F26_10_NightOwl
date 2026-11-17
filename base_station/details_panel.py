@@ -30,17 +30,19 @@ def selected_data(detection, choices):
         position.update(latitude=detection.latitude, longitude=detection.longitude)
     if "Altitude" in choices:
         position["altitude_m"] = detection.altitude_m
+        if detection.altitude_reference is not None:
+            position["altitude_reference"] = detection.altitude_reference
     if position:
-        data["position"] = position
+        data["position"] = None if all(value is None for value in position.values()) else position
     return data
 
 
 class DetailsPanel(ttk.Frame):
     def __init__(self, parent, image_directory):
-        super().__init__(parent, width=360)
+        super().__init__(parent, width=520)
         self.pack_propagate(False)
         self.canvas = tk.Canvas(
-            self, background="#101827", highlightthickness=0, width=340,
+            self, background="#101827", highlightthickness=0, width=500,
         )
         scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
         self.canvas.configure(yscrollcommand=scrollbar.set)
@@ -53,6 +55,8 @@ class DetailsPanel(ttk.Frame):
         self.canvas.bind("<Configure>", self._resize_body)
         self.image_directory = Path(image_directory)
         self.photo = None
+        self.preview_source = None
+        self.preview_size = None
         self.current_detection = None
         ttk.Label(body, text="SELECTED DETECTION",
                   font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(0, 12))
@@ -100,7 +104,7 @@ class DetailsPanel(ttk.Frame):
             label.grid(row=row, column=0, sticky="w", padx=(0, 12), pady=6)
             value = tk.StringVar(master=self, value="—")
             self.fields[name] = value
-            display = ttk.Label(metadata, textvariable=value, wraplength=170, justify="left")
+            display = ttk.Label(metadata, textvariable=value, wraplength=330, justify="left")
             display.grid(row=row, column=1, sticky="w", pady=6)
             self.row_widgets[name] = (label, display)
 
@@ -111,11 +115,11 @@ class DetailsPanel(ttk.Frame):
         ).pack(anchor="w", pady=(4, 8))
         self.image_label = ttk.Label(
             self.image_frame, text="Select a detection to view its details.",
-            anchor="center", wraplength=290,
+            anchor="center", wraplength=460,
         )
         self.image_label.pack(fill="x")
         self.file_label = ttk.Label(
-            self.image_frame, text="", wraplength=240, anchor="w",
+            self.image_frame, text="", wraplength=450, anchor="w",
             justify="left", style="Subtitle.TLabel",
         )
         self.file_label.pack(fill="x", padx=(0, 12), pady=8)
@@ -142,7 +146,26 @@ class DetailsPanel(ttk.Frame):
 
     def _resize_body(self, event):
         self.canvas.itemconfigure(self.window_id, width=event.width)
+        for _, display in self.row_widgets.values():
+            display.configure(wraplength=max(100, event.width - 160))
+        self.image_label.configure(wraplength=max(160, event.width - 24))
+        self.file_label.configure(wraplength=max(160, event.width - 36))
+        self._render_preview()
         self._update_scroll_region()
+
+    def _render_preview(self):
+        if self.preview_source is None:
+            return
+        width = max(160, self.canvas.winfo_width() - 24)
+        scale = min(width / self.preview_source.width, 360 / self.preview_source.height)
+        size = (max(1, round(self.preview_source.width * scale)),
+                max(1, round(self.preview_source.height * scale)))
+        if size == self.preview_size:
+            return
+        preview = self.preview_source.resize(size, Image.Resampling.LANCZOS)
+        self.photo = ImageTk.PhotoImage(preview, master=self)
+        self.preview_size = size
+        self.image_label.configure(image=self.photo, text="")
 
     def _bind_wheel(self, widget):
         widget.bind("<MouseWheel>", self._scroll_wheel)
@@ -213,6 +236,8 @@ class DetailsPanel(ttk.Frame):
         for value in self.fields.values():
             value.set("—")
         self.photo = None
+        self.preview_source = None
+        self.preview_size = None
         self.image_label.configure(image="", text="Select a detection to view its details.")
         self.file_label.configure(text="")
 
@@ -224,18 +249,20 @@ class DetailsPanel(ttk.Frame):
             "Object": detection.object_type,
             "Confidence": f"{detection.confidence:.0%}",
             "Time (local)": detection.formatted_time,
-            "Latitude": f"{detection.latitude:.6f}",
-            "Longitude": f"{detection.longitude:.6f}",
-            "Altitude (m)": "Not provided" if detection.altitude_m is None else str(detection.altitude_m),
+            "Latitude": detection.formatted_latitude,
+            "Longitude": detection.formatted_longitude,
+            "Altitude (m)": detection.formatted_altitude,
         }
         for name, value in values.items():
             self.fields[name].set(value)
         self.photo = None
+        self.preview_source = None
+        self.preview_size = None
         self.image_label.configure(image="", text="")
         reference = detection.image_path
         self.file_label.configure(text=str(reference or "No image reference in packet"))
         if not reference:
-            self.image_label.configure(text="No image provided")
+            self.image_label.configure(text="No thumbnail received yet" if detection.expects_image else "No image provided")
             return
         if not isinstance(reference, str):
             self.image_label.configure(text="Invalid image reference")
@@ -253,9 +280,7 @@ class DetailsPanel(ttk.Frame):
             return
         try:
             with Image.open(path) as source:
-                preview = source.convert("RGB")
-                preview.thumbnail((290, 180))
-            self.photo = ImageTk.PhotoImage(preview, master=self)
-            self.image_label.configure(image=self.photo, text="")
+                self.preview_source = source.convert("RGB")
+            self._render_preview()
         except (OSError, ValueError, Image.DecompressionBombError):
             self.image_label.configure(text="Unable to open this image")

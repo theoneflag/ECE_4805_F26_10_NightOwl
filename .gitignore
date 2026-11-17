@@ -1,0 +1,58 @@
+# Python environments and caches
+.venv/
+venv/
+env/
+radio_camera_env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Installed dependencies and build output
+build/
+dist/
+*.egg-info/
+*.dist-info/
+*.egg
+*.whl
+
+# Downloaded camera/detection models
+*.hef
+*.onnx
+*.pt
+*.pth
+
+# Captured images, partial transfers, and detection exports
+received_images/
+detections/
+detections_radio/
+detection_export*.zip
+*.part
+
+# Generated service contains local user, environment, and device paths
+nightowl.service
+nightowl-service-previous-*.bak
+
+# Local credentials and machine settings
+.env
+.env.*
+!.env.example
+!.env.sample
+.aws/
+.codex/
+
+# Logs, temporary files, and editor settings
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
